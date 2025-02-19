@@ -1,0 +1,94 @@
+--- moly
++++ moly-server
+@@ -5,24 +5,14 @@
+ 2. Obtain the source code for this repository:
+ 
+ ```sh
+-git clone https://github.com/moxin-org/moly.git
++git clone https://github.com/moxin-org/moly-server.git
+ ```
+ 
+-#### Tip: use `moly-runner` for easy setup
++3. Follow the platform-specific instructions below.
+ 
+-> [!TIP]
+-> On all platforms, you can use our helper program to auto-setup WasmEdge for you and run any `cargo` command:
+->
+-> ```sh
+-> cargo run -p moly-runner -- --install    ## finds or installs WasmEdge, then stops.
+-> cargo run -p moly-runner -- cargo build  ## builds Moly
+-> cargo run -p moly-runner -- cargo run    ## builds and runs Moly
+-> cargo run -p moly-runner -- cargo [your-command-here]
+-> ```
+-
+ ### macOS
+ 
+-Install the required WasmEdge WASM runtime (or use [`moly-runner`](#tip-use-moly-runner-for-easy-setup)):
++Install the required WasmEdge WASM runtime:
+ 
+ ```sh
+ curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install_v2.sh | bash -s -- --version=0.14.1
+@@ -30,16 +20,16 @@
+ source $HOME/.wasmedge/env
+ ```
+ 
+-Then use `cargo` to build and run Moly:
++Then use `cargo` to build and run the server:
+ 
+ ```sh
+-cd moly
++cd moly-server
+ cargo run --release
+ ```
+ 
+ ### Linux
+ 
+-Install the required WasmEdge WASM runtime (or use [`moly-runner`](#tip-use-moly-runner-for-easy-setup)):
++Install the required WasmEdge WASM runtime:
+ 
+ ```sh
+ curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install_v2.sh | bash -s -- --version=0.14.1
+@@ -49,37 +39,23 @@
+ 
+ > [!IMPORTANT]
+ > If your CPU does not support AVX512, then you should append the `--noavx` option onto the above command.
+-> If you use [`moly-runner`](#tip-use-moly-runner-for-easy-setup), it will handle this for you.
+ 
+-To build Moly on Linux, you must install the following dependencies:
+-`openssl`, `clang`/`libclang`, `binfmt`, `Xcursor`/`X11`, `asound`/`pulse`.
+-On a Debian-like Linux distro (e.g., Ubuntu), run the following:
++To build Moly on Linux, you must install the following dependencies: `openssl`,
++`clang`/`libclang`, `binfmt`. On a Debian-like Linux distro (e.g., Ubuntu), run
++the following:
+ 
+ ```sh
+ sudo apt-get update
+-sudo apt-get install libssl-dev pkg-config llvm clang libclang-dev binfmt-support libxcursor-dev libx11-dev libasound2-dev libpulse-dev
++sudo apt-get install libssl-dev pkg-config llvm clang libclang-dev binfmt-support
+ ```
+ 
+ Then use `cargo` to build and run Moly:
+ 
+ ```sh
+-cd moly
++cd moly-server
+ cargo run --release
+ ```
+ 
+ ## Windows (Windows 10, Windows 11 or higher)
+ 
+-1.  Download and install the LLVM v17.0.6 release for Windows: [Here is a direct link to LLVM-17.0.6-win64.exe](https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/LLVM-17.0.6-win64.exe), 333MB in size.
+-
+-> [!IMPORTANT]
+-> During the setup procedure, make sure to select `Add LLVM to the system PATH for all users` or `for the current user`.
+-
+-2. Restart your PC, or log out and log back in, which allows the LLVM path to be properly
+-
+-   - Alternatively you can add the LLVM path `C:\Program Files\LLVM\bin` to your system PATH.
+-
+-3. Use `moly-runner` to auto-setup WasmEdge and then build & run Moly:
+-
+-```sh
+-cargo run -p moly-runner -- cargo run --release  ## `--release` is optional
+-```
++TODO preferred installation procedure?
