@@ -78,9 +78,9 @@ cargo run -p moly-server
     - For CUDA 11/12:
       [`WasmEdge-plugin-wasi_nn-ggml-cuda-0.14.1-windows-x86_64.zip`](https://github.com/WasmEdge/WasmEdge/releases/download/0.14.1/WasmEdge-plugin-wasi_nn-ggml-cuda-0.14.1-windows_x86_64.zip)
     - For CPUs with AVX512 support:
-      [`WasmEdge-plugin-wasi_nn-ggml-0.14.1-windows-x86_64.zip`](ttps://github.com/WasmEdge/WasmEdge/releases/download/0.14.1/WasmEdge-plugin-wasi_nn-ggml-0.14.1-windows_x86_64.zip)
+      [`WasmEdge-plugin-wasi_nn-ggml-0.14.1-windows-x86_64.zip`](https://github.com/WasmEdge/WasmEdge/releases/download/0.14.1/WasmEdge-plugin-wasi_nn-ggml-0.14.1-windows_x86_64.zip)
     - Otherwise:
-      [`WasmEdge-plugin-wasi_nn-ggml-noavx-0.14.1-windows-x86_64.zip`](ttps://github.com/WasmEdge/WasmEdge/releases/download/0.14.1/WasmEdge-plugin-wasi_nn-ggml-noavx-0.14.1-windows_x86_64.zip)
+      [`WasmEdge-plugin-wasi_nn-ggml-noavx-0.14.1-windows-x86_64.zip`](https://github.com/WasmEdge/WasmEdge/releases/download/0.14.1/WasmEdge-plugin-wasi_nn-ggml-noavx-0.14.1-windows_x86_64.zip)
 
 3. Copy the plugin DLL from that archive `.\lib\wasmedge\wasmedgePluginWasiNN.dll` to `Program Files\WasmEdge\lib\`
 
