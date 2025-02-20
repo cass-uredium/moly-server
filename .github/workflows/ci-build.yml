@@ -227,6 +227,7 @@ jobs:
         run: |
           mkdir -p "$DIST_DIR"/lib
           cp "$WASMEDGE_DIR"/bin/wasmedge.dll "$DIST_DIR"/
+          cp "$WASMEDGE_DIR"/lib/wasmedge.lib "$DIST_DIR"/
           cp "$WASMEDGE_DIR"/lib/wasmedgePluginWasiNN.dll "$DIST_DIR"/
 
       - name: Copy binary artifacts
