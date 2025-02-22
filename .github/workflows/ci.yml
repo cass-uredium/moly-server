@@ -1,0 +1,171 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  WASMEDGE_VERSION: "0.14.1"
+
+jobs:
+  build:
+    name: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x86_64
+            rust_toolchain: stable
+            rust_target: x86_64-unknown-linux-gnu
+            label: moly-server-ubuntu-x86_64
+          - os: macos-14
+            arch: x86_64
+            rust_toolchain: stable
+            rust_target: x86_64-apple-darwin
+            label: moly-server-darwin-x86_64
+          - os: macos-14
+            arch: aarch64
+            rust_toolchain: stable
+            rust_target: aarch64-apple-darwin
+            label: moly-server-darwin-aarch64
+          - os: windows-2022
+            arch: x86_64
+            rust_toolchain: stable
+            rust_target: x86_64-pc-windows-msvc
+            label: moly-server-windows-x86_64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install WasmEdge (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install_v2.sh | bash -s -- \
+              --version="$WASMEDGE_VERSION" \
+              --arch="${{ matrix.arch }}" \
+              --verbose
+          echo "WASMEDGE_DIR=$HOME/.wasmedge" >> "$GITHUB_ENV"
+
+      - name: Install WasmEdge (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $wasmedge_release_url = "https://github.com/WasmEdge/WasmEdge/releases/download/$env:WASMEDGE_VERSION"
+          $wasmedge_dist = "WasmEdge-$env:WASMEDGE_VERSION-windows"
+          $wasi_nn_dist = "WasmEdge-plugin-wasi_nn-ggml-noavx-$env:WASMEDGE_VERSION-windows_x86_64"
+
+          $ProgressPreference = 'SilentlyContinue'
+
+          Invoke-WebRequest -Uri "$wasmedge_release_url/${wasmedge_dist}.zip" -OutFile "$env:RUNNER_TEMP\${wasmedge_dist}.zip"
+          Expand-Archive -Force -LiteralPath "$env:RUNNER_TEMP\${wasmedge_dist}.zip" -DestinationPath "${{ github.workspace }}"
+
+          Invoke-WebRequest -Uri "$wasmedge_release_url/${wasi_nn_dist}.zip" -OutFile "$env:RUNNER_TEMP\${wasi_nn_dist}.zip"
+          Expand-Archive -Force -LiteralPath "$env:RUNNER_TEMP\${wasi_nn_dist}.zip" -DestinationPath "$env:RUNNER_TEMP"
+          New-Item "${{ github.workspace }}\$wasmedge_dist\plugin" -Type Directory
+          Copy-Item -Recurse -Force -Path "$env:RUNNER_TEMP\$wasi_nn_dist\lib\wasmedge\*" -Destination "${{ github.workspace }}\$wasmedge_dist\plugin"
+
+          $ProgressPreference = 'Continue'
+
+          tree /F "${{ github.workspace }}\$wasmedge_dist"
+          echo "WASMEDGE_DIR=${{ github.workspace }}\$wasmedge_dist" | Out-File -FilePath "$env:GITHUB_ENV" -Encoding utf8 -Append
+
+      - name: Install Rust toolchain (${{ matrix.rust_toolchain }})
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust_toolchain }}
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        if: ${{ github.head_ref != 'main' && github.head_ref != 'dev' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ matrix.label }}
+
+      - name: cargo build
+        run: |
+          cargo build --locked --release \
+              --bin=moly-server \
+              --target="${{ matrix.rust_target }}" \
+              --target-dir=target
+
+      - name: Set up build/dist directories
+        run: |
+          dist_dir="${{ github.workspace }}/dist/${{ matrix.label }}"
+          mkdir -p "$dist_dir"
+          echo "DIST_DIR=$dist_dir" >> "$GITHUB_ENV"
+
+      - name: Copy WasmEdge libraries
+        run: |
+          shopt -s extglob
+          case "${{ matrix.os }}" in
+              "ubuntu"*)
+                  mkdir -p "$DIST_DIR/lib"
+                  cp "$WASMEDGE_DIR/lib/libwasmedge.so"* \
+                     "$WASMEDGE_DIR/plugin/libwasmedgePluginWasiNN.so" \
+                     "$DIST_DIR/lib/"
+                  ;;
+              "macos"*)
+                  mkdir -p "$DIST_DIR/lib"
+                  cp "$WASMEDGE_DIR/lib/libwasmedge"?(.*).dylib \
+                     "$WASMEDGE_DIR/plugin/libwasmedgePluginWasiNN.dylib" \
+                     "$DIST_DIR/lib/"
+                  ;;
+              "windows"*)
+                  cp "$WASMEDGE_DIR\\bin\\wasmedge.dll" \
+                     "$WASMEDGE_DIR\\plugin\\wasmedgePluginWasiNN.dll" \
+                     "$DIST_DIR"
+                  ;;
+              *)
+                  echo "Unknown runner OS: ${{ matrix.os }}" >&2
+                  exit 1
+                  ;;
+          esac
+
+      - name: Copy binary artifacts
+        run: |
+          mkdir -p "$DIST_DIR/bin"
+          cp "target/${{ matrix.rust_target }}/release/moly-server" "$DIST_DIR/bin/"
+
+      - name: Copy resource files
+        run: |
+          cp LICENSE "$DIST_DIR/"
+
+      - name: Strip unneeded binary symbols (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          strip \
+            --strip-unneeded \
+            --remove-section=.comment \
+            --remove-section=.note \
+            "$DIST_DIR/bin/moly-server"
+
+      - name: Patch binary with relative rpath (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          patchelf --set-rpath '$ORIGIN/../lib' "$DIST_DIR/bin/moly-server"
+
+      - name: Patch binary with relative rpath (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          install_name_tool -add_rpath '@executable_path/../lib' "$DIST_DIR/bin/moly-server"
+
+      - name: Upload dist archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: ${{ env.DIST_DIR }}
