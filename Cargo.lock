@@ -1367,6 +1367,7 @@ dependencies = [
  "git2",
  "log",
  "moly-protocol",
+ "native-tls",
  "reqwest",
  "rusqlite",
  "serde",
