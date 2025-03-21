@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  schedule:
+    # every Sunday at 12:00 UTC (00:00 AOE)
+    - cron: "0 12 * * 0"
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+  release:
+    needs: [build]
+    environment: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Determine release metadata
+        run: |
+          export TZ=UTC
+          version=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "moly-server") | .version')
+          echo "RELEASE_NAME=nightly-$(date +'%Y-%m-%d')" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=${version}+nightly.$(date +'%Y%m%d')" >> "$GITHUB_ENV"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+
+      - name: Generate archives
+        run: |
+          for dir in moly-server-*; do
+              if [[ $dir == *"windows"* ]]; then
+                  echo "Generating ZIP archive: ${dir}.zip"
+                  zip -r "${dir}.zip" "$dir"
+              else
+                  echo "Generating tarball: ${dir}.tar.gz"
+                  tar -czf "${dir}.tar.gz" "$dir"
+              fi
+          done
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+          name: ${{ env.RELEASE_NAME }}
+          tag_name: v${{ env.RELEASE_VERSION }}
+          prerelease: true
+          files: |
+            moly-server-*.tar.gz
+            moly-server-*.zip
+          body: |
+            Nightly testing release.
+
+            Build: `v${{ env.RELEASE_VERSION }}` (${{ github.sha }})
